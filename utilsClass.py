@@ -16,6 +16,9 @@ import dask.dataframe as dd
 from scipy.spatial.distance import pdist, squareform
 from scipy.optimize import linear_sum_assignment
 from concurrent.futures import ThreadPoolExecutor
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.ensemble import IsolationForest
 
 class Utils:
     global geolocator
@@ -189,8 +192,8 @@ class Utils:
         """
         dataframe['CEP'] = 'NONE'
         for index, row_data in dataframe.iterrows():
-            lat = row_data['lat']
-            lon = row_data['lon']
+            lat = row_data['latitude']
+            lon = row_data['longitude']
             postcode = self.get_postcode_from_lat_and_lon(lat, lon)
             dataframe.at[index, 'CEP'] = postcode if postcode else 'NONE'
         return dataframe
@@ -203,8 +206,8 @@ class Utils:
         """
         dataframe['BAIRRO'] = 'NONE'
         for index, row_data in dataframe.iterrows():
-            lat = row_data['lat']
-            lon = row_data['lon']
+            lat = row_data['latitude']
+            lon = row_data['longitude']
             postcode = self.get_neighborhood(lat, lon)
             dataframe.at[index, 'BAIRRO'] = postcode if postcode else 'NONE'
         return dataframe
@@ -408,5 +411,54 @@ class Utils:
                 .reset_index(drop=True)
             )
             df_city['distance_to_next'] = self.calculate_distances_parallel(df_city)
+            # df_city = self.set_dataframe_for_city(df_city)
             return df_city
 
+    def ml_data_test(self, dataframe):
+        dataframe['date'] = pd.to_datetime(dataframe['data_pas'])
+        dataframe['year'] = dataframe['date'].dt.year
+        dataframe['month'] = dataframe['date'].dt.month
+        dataframe['day'] = dataframe['date'].dt.day
+        dataframe['weekday'] = dataframe['date'].dt.weekday
+        features = dataframe[['latitude', 'longitude', 'year', 'month', 'day', 'weekday']]
+
+        scaler = StandardScaler()
+        features_scaled = scaler.fit_transform(features)
+
+        kmeans = KMeans(n_clusters=3)  # Assume 3 clusters for this example
+        dataframe['cluster'] = kmeans.fit_predict(features_scaled)
+
+        print(dataframe)
+
+        X = dataframe[['latitude', 'longitude', 'year', 'month', 'day', 'weekday']]
+        y = dataframe['year']
+
+        from sklearn.ensemble import RandomForestRegressor
+        model = RandomForestRegressor(n_estimators=100, random_state=42)
+        model.fit(X, y)
+
+        new_data = pd.DataFrame({
+            'latitude': [40.730610],
+            'longitude': [-73.935242],
+            'year': [2025],
+            'month': [1],
+            'day': [5],
+            'weekday': [4]
+        })
+        prediction = model.predict(new_data)
+        print(f'Predicted Target Value: {prediction[0]}')
+
+        X = dataframe[['latitude', 'longitude', 'year', 'month', 'day', 'weekday']]
+
+        iso_forest = IsolationForest(contamination=0.1)
+        dataframe['anomaly'] = iso_forest.fit_predict(X)
+
+        # -1 indicates an anomaly, 1 indicates normal
+        print(dataframe[['latitude', 'longitude', 'anomaly']])
+
+        scaler = MinMaxScaler()
+        dataframe[['latitude', 'longitude', 'year', 'month', 'day', 'weekday']] = scaler.fit_transform(
+            dataframe[['latitude', 'longitude', 'year', 'month', 'day', 'weekday']]
+        )
+        print(dataframe)
+        dataframe.drop(columns=['date', 'year', 'month', 'day', 'weekday'], inplace=True)

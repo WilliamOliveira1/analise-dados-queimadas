@@ -1,10 +1,10 @@
 import os
-import pandas as pd
 from PIL.Image import Image
 from utilsClass import Utils
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
+import pandas as pd
 
 utils = Utils()
 initial_year = 2003
@@ -13,6 +13,9 @@ resolution = 8
 
 dados_queimadas_total = utils.create_data_frame_array('./base_de_dados_inpe/focos_br_sp_ref_', initial_year, ',', 21)
 dados_queimadas = utils.append_all_dataframes(dados_queimadas_total)
+dados_queimadas = dados_queimadas.rename(columns={'lat': 'latitude', 'lon': 'longitude'})
+print("Checking if is null data in table: ")
+print(utils.is_dataframe_null_values(dados_queimadas))
 
 sorocaba = 'SOROCABA'
 votorantim = 'VOTORANTIM'
@@ -23,25 +26,6 @@ pilar_do_sul = 'PILAR DO SUL'
 salto_de_pirapora = 'SALTO DE PIRAPORA'
 sao_miguel_arcanjo = 'SÃO MIGUEL ARCANJO'
 
-# # Adiciona geometria de ponto para visualização em ferramentas GIS
-# nearest_points_df['geometry'] = [Point(xy) for xy in zip(nearest_points_df['longitude'], nearest_points_df['latitude'])]
-#
-# # Cria o GeoDataFrame
-# nearest_points_gdf = gpd.GeoDataFrame(nearest_points_df, geometry='geometry')
-# nearest_points_gdf.set_crs("EPSG:4326", inplace=True)
-#
-# # Exporta para GeoJSON
-# nearest_points_gdf.to_file("nearest_points_clusters.geojson", driver="GeoJSON")
-
-# Generate the GeoJSON
-# geojson_data = utils.df_to_geojson(clustered_df, h3_column='h3_index', cluster_column='cluster')
-# geojson_data = utils.find_nearby_points_in_cluster(clustered_df, max_distance_km)
-#
-# # Exporta para GeoJSON
-# # Save to a .geojson file
-# with open("sorocaba_points_clusters.geojson", "w") as f:
-#     json.dump(geojson_data, f)
-
 df_sorocaba = utils.set_dataframe_data(dados_queimadas, sorocaba, max_distance_km, resolution)
 df_votorantim = utils.set_dataframe_data(dados_queimadas, votorantim, max_distance_km, resolution)
 df_ipero = utils.set_dataframe_data(dados_queimadas, ipero, max_distance_km, resolution)
@@ -50,6 +34,7 @@ df_tapirai = utils.set_dataframe_data(dados_queimadas, tapirai, max_distance_km,
 df_pilar = utils.set_dataframe_data(dados_queimadas, pilar_do_sul, max_distance_km, resolution)
 df_salto = utils.set_dataframe_data(dados_queimadas, salto_de_pirapora, max_distance_km, resolution)
 df_sm_arcanjo = utils.set_dataframe_data(dados_queimadas, sao_miguel_arcanjo, max_distance_km, resolution)
+
 dataframes = {
     'Sorocaba': df_sorocaba,
     'Votorantim': df_votorantim,
@@ -60,9 +45,19 @@ dataframes = {
     'Salto de Pirapora': df_salto,
     'São Miguel Arcanjo': df_sm_arcanjo
 }
+
 file_name = 'output'
 if not os.path.exists(file_name + '.xlsx'):
     utils.export_excel_with_sheets(dataframes, file_name)
+
+utils.ml_data_test(df_sorocaba)
+utils.ml_data_test(df_votorantim)
+utils.ml_data_test(df_ipero)
+utils.ml_data_test(df_piedade)
+utils.ml_data_test(df_tapirai)
+utils.ml_data_test(df_pilar)
+utils.ml_data_test(df_salto)
+utils.ml_data_test(df_sm_arcanjo)
 
 cities = {
     "Sorocaba": sorocaba+".png",
@@ -167,16 +162,3 @@ for city, image_path in cities.items():
 create_excel_tab('output.xlsx')
 
 root.mainloop()
-
-# Sub-região 3 da Região Metropolitana de Sorocaba
-# utils.count_of_data(dados_queimadas, 'IPERÓ')
-# utils.count_of_data(dados_queimadas, 'PIEDADE')
-# utils.count_of_data(dados_queimadas, 'PILAR DO SUL')
-# utils.count_of_data(dados_queimadas, 'SALTO DE PIRAPORA')
-# utils.count_of_data(dados_queimadas, 'SÃO MIGUEL ARCANJO')
-# utils.count_of_data(dados_queimadas, 'SOROCABA')
-# utils.count_of_data(dados_queimadas, 'TAPIRAÍ')
-# utils.count_of_data(dados_queimadas, 'VOTORANTIM')
-
-# Verificar dados duplicados
-# print(f'Dados de Votorantim lat duplicados: \n{utils.get_column_values_repeated(dados_votorantim, "lat")} \n')
